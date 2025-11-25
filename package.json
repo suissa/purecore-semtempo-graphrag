@@ -1,5 +1,5 @@
 {
-  "name": "@purecore/tempograph",
+  "name": "@purecore/semtempo-graphrag",
   "version": "0.1.0",
   "description": "",
   "keywords": [],
@@ -19,7 +19,7 @@
   "author": "Suissa <suissa@gmail.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/suissa/typescript-temporal-graph"
+    "url": "https://github.com/suissa/purecore-semtempo-graphrag"
   },
   "license": "MIT",
   "engines": {
