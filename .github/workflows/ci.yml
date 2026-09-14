@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   test-bun:
-    name: Bun Test & Build
+    name: Bun Monorepo Test & Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -30,13 +30,13 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Install dependencies
+      - name: Install workspace dependencies
         run: bun install
 
-      - name: Run tests
+      - name: Run tests across all packages
         run: bun test
 
-      - name: Build dist
+      - name: Build all packages
         run: bun run build
 
   test-node:
@@ -58,8 +58,5 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build dist
+      - name: Build all packages
         run: npm run build
-
-      - name: Run Jest tests
-        run: npx jest --runInBand

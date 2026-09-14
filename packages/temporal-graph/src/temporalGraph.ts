@@ -173,4 +173,34 @@ export class TemporalGraph<NodeData = any, EdgeData = any> {
 
     return null
   }
+
+  // ========= REMOVAL & PRUNING HELPERS =========
+
+  getEdge(id: string): TemporalEdge<EdgeData> | undefined {
+    return this.edges.get(id)
+  }
+
+  removeEdge(id: string): boolean {
+    const edge = this.edges.get(id)
+    if (!edge) return false
+    this.edges.delete(id)
+    const set = this.adjacency.get(edge.from)
+    if (set) set.delete(id)
+    return true
+  }
+
+  removeNode(id: string): boolean {
+    if (!this.nodes.has(id)) return false
+    this.nodes.delete(id)
+    this.adjacency.delete(id)
+
+    // Remove all edges connected to this node
+    for (const [edgeId, edge] of this.edges.entries()) {
+      if (edge.from === id || edge.to === id) {
+        this.edges.delete(edgeId)
+      }
+    }
+    return true
+  }
 }
+

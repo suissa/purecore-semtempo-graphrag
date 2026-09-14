@@ -39,4 +39,4 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            dist/**
+            packages/*/dist/**

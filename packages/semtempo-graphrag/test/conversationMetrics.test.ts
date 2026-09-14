@@ -11,9 +11,9 @@ import {
   identifySalesOpportunities,
   generateRecommendations,
   generateConversationInsights
-} from '../src/semantic/analytics/conversation'
-import { ConversationData, ConversationMessage } from '../src/semantic/types'
-import { LLMProvider, LLMCompletionOptions } from '../src/semantic/providers/llm'
+} from '../src/analytics/conversation'
+import { ConversationData, ConversationMessage } from '../src/types'
+import { LLMProvider, LLMCompletionOptions } from '../src/providers/llm'
 
 describe('conversationMetrics', () => {
   describe('calculateConversationMetrics (deterministic features)', () => {

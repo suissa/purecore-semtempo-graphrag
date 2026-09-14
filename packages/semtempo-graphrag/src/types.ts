@@ -2,7 +2,7 @@
  * Tipos e interfaces para o módulo semântico do grafo temporal
  */
 
-import { TemporalGraph, TemporalNode, TemporalEdge } from '../temporalGraph'
+import { TemporalGraph, TemporalNode, TemporalEdge } from '@purecore/temporal-graph'
 
 /**
  * Configuração de provedor de embeddings
