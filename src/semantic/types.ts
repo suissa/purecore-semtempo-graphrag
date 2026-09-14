@@ -181,6 +181,52 @@ export interface ConversationMetrics {
   sentiment?: 'positive' | 'neutral' | 'negative'
   /** Score de satisfação (0-100) */
   satisfactionScore?: number
+
+  // === Features Determinísticas Adicionais ===
+  /** Número de mensagens do sistema */
+  systemMessageCount?: number
+  /** Razão de mensagens do usuário (userMessageCount / messageCount) */
+  userMessageRatio?: number
+  /** Razão de mensagens do agente (agentMessageCount / messageCount) */
+  agentMessageRatio?: number
+  /** Quantidade de alternâncias de turno na conversa */
+  turnCount?: number
+  /** Menor tempo de resposta do agente a um usuário (ms) */
+  minResponseTime?: number
+  /** Maior tempo de resposta do agente a um usuário (ms) */
+  maxResponseTime?: number
+  /** Mediana dos tempos de resposta do agente (ms) */
+  medianResponseTime?: number
+  /** Tempo até a primeira resposta do agente (TTFR - Time to First Response) em ms */
+  firstResponseTime?: number
+  /** Tempo médio que o usuário levou para responder ao agente (ms) */
+  averageUserResponseTime?: number
+  /** Maior intervalo de inatividade/silêncio entre duas mensagens consecutivas (ms) */
+  silenceDuration?: number
+  /** Total de palavras em todas as mensagens */
+  totalWordCount?: number
+  /** Total de palavras enviadas pelo usuário */
+  userWordCount?: number
+  /** Total de palavras enviadas pelo agente */
+  agentWordCount?: number
+  /** Média de caracteres por mensagem */
+  averageMessageLength?: number
+  /** Média de palavras por mensagem */
+  averageWordsPerMessage?: number
+  /** Quantidade total de perguntas detectadas */
+  questionCount?: number
+  /** Quantidade de perguntas feitas pelo usuário */
+  userQuestionCount?: number
+  /** Quantidade de perguntas feitas pelo agente */
+  agentQuestionCount?: number
+  /** Tipo da primeira mensagem da conversa */
+  firstMessageType?: 'user' | 'agent' | 'system'
+  /** Tipo da última mensagem da conversa */
+  lastMessageType?: 'user' | 'agent' | 'system'
+  /** Velocidade da conversa (mensagens por minuto) */
+  messagesPerMinute?: number
+  /** Indica se houve diálogo de múltiplos turnos */
+  isMultiTurn?: boolean
 }
 
 /**

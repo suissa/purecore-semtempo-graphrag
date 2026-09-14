@@ -11,6 +11,7 @@ import {
   temporalIntensity,
   activationRhythm,
   temporalOverlapRatio,
+  temporalOverlapRatioFast,
   temporalChangeRate
 } from '../src/metrics/temporalMetrics'
 
@@ -208,12 +209,12 @@ describe('temporalMetrics', () => {
   })
 
   describe('graphAliveRatio', () => {
-    it('should return 0 for invalid interval', () => {
+    it('should return 0 for invalid interval (empty window or inverted timestamps)', () => {
       expect(graphAliveRatio(graph, 10, 5)).toBe(0)
       expect(graphAliveRatio(graph, 10, 10)).toBe(0)
     })
 
-    it('should calculate alive ratio correctly', () => {
+    it('should calculate alive ratio correctly for single edge', () => {
       graph.insertNode('A')
       graph.insertNode('B')
 
@@ -221,19 +222,54 @@ describe('temporalMetrics', () => {
       graph.addTemporalEdge('A', 'B', 10, undefined, 20)
 
       expect(graphAliveRatio(graph, 0, 20)).toBe(0.5)
+      expect(graphAliveRatio(graph, 0, 20, { normalize: true })).toBe(0.5)
     })
 
-    it('should return 1 when fully active', () => {
+    it('should return 1 when fully active for single edge', () => {
       graph.insertNode('A')
       graph.insertNode('B')
 
       graph.addTemporalEdge('A', 'B', 0, undefined, 20)
 
       expect(graphAliveRatio(graph, 0, 20)).toBe(1)
+      expect(graphAliveRatio(graph, 0, 20, { normalize: true })).toBe(1)
+    })
+
+    it('should distinguish unnormalized concurrency ratio and normalized [0, 1] ratio for multiple edges', () => {
+      graph.insertNode('A')
+      graph.insertNode('B')
+      graph.insertNode('C')
+
+      // 3 edges all fully active in 0..20 (20ms window)
+      // Total active time = 3 * 20 = 60ms
+      graph.addTemporalEdge('A', 'B', 0, undefined, 20)
+      graph.addTemporalEdge('B', 'C', 0, undefined, 20)
+      graph.addTemporalEdge('A', 'C', 0, undefined, 20)
+
+      // Sem normalização: 60 / 20 = 3 (concorrência média de arestas ativas)
+      expect(graphAliveRatio(graph, 0, 20)).toBe(3)
+
+      // Com normalização: 60 / (20 * 3) = 1.0 (garantido em [0, 1])
+      expect(graphAliveRatio(graph, 0, 20, { normalize: true })).toBe(1.0)
+    })
+
+    it('should return 0 when normalized and no edges in interval', () => {
+      graph.insertNode('A')
+      graph.insertNode('B')
+      expect(graphAliveRatio(graph, 0, 20, { normalize: true })).toBe(0)
     })
   })
 
   describe('temporalAcceleration', () => {
+    it('should return 0 for empty window or inverted timestamps', () => {
+      graph.insertNode('A')
+      graph.insertNode('B')
+      graph.addTemporalEdge('A', 'B', 10, undefined, 20)
+
+      expect(temporalAcceleration(graph, 15, 15)).toBe(0) // empty window
+      expect(temporalAcceleration(graph, 25, 10)).toBe(0) // inverted timestamps
+    })
+
     it('should calculate acceleration correctly', () => {
       graph.insertNode('A')
       graph.insertNode('B')
@@ -256,15 +292,27 @@ describe('temporalMetrics', () => {
       graph.addTemporalEdge('A', 'B', 10, undefined, 20)
       graph.addTemporalEdge('B', 'C', 15, undefined, 25)
 
-      // At t=18: 2 edges active (A->B: 10-20, B->C: 15-25)
-      // At t=22: check which edges are active
-      // A->B ends at 20, so not active at 22
-      // B->C: 15 <= 22 <= 25, so active
-      // So at t=22: 1 edge active
+      // At t=18: 2 edges active
+      // At t=21: 1 edge active
       // Acceleration: 1 - 2 = -1
-      // But if A->B is still counted, it might be 2 - 2 = 0
-      // Let's use a time clearly after first edge ends
-      expect(temporalAcceleration(graph, 18, 21)).toBe(-1) // 1 - 2 = -1
+      expect(temporalAcceleration(graph, 18, 21)).toBe(-1)
+    })
+
+    it('should calculate continuous acceleration rate per minute when option is enabled', () => {
+      graph.insertNode('A')
+      graph.insertNode('B')
+      graph.insertNode('C')
+
+      // At t=0: 1 edge active (A->B from 0 to 60000)
+      // At t=30000 (0.5 min): 2 edges active (A->B and B->C from 20000 to 60000)
+      graph.addTemporalEdge('A', 'B', 0, undefined, 60000)
+      graph.addTemporalEdge('B', 'C', 20000, undefined, 60000)
+
+      // Delta = 2 - 1 = 1 edge
+      // Window = 30000ms = 0.5 minutes
+      // Rate per minute = 1 / 0.5 = 2 edges/min
+      const rate = temporalAcceleration(graph, 0, 30000, { perMinute: true })
+      expect(rate).toBeCloseTo(2, 2)
     })
   })
 
@@ -329,17 +377,30 @@ describe('temporalMetrics', () => {
     })
   })
 
-  describe('temporalOverlapRatio', () => {
+  describe('temporalOverlapRatio and temporalOverlapRatioFast (O(n log n))', () => {
+    it('should return 0 for empty window or inverted timestamps', () => {
+      graph.insertNode('A')
+      graph.insertNode('B')
+      graph.addTemporalEdge('A', 'B', 10, undefined, 20)
+
+      expect(temporalOverlapRatio(graph, 15, 15)).toBe(0) // empty window
+      expect(temporalOverlapRatio(graph, 25, 10)).toBe(0) // inverted timestamps
+      expect(temporalOverlapRatioFast(graph, 15, 15)).toBe(0)
+      expect(temporalOverlapRatioFast(graph, 25, 10)).toBe(0)
+    })
+
     it('should return 0 for 0 or 1 edges', () => {
       graph.insertNode('A')
       expect(temporalOverlapRatio(graph, 0, 100)).toBe(0)
+      expect(temporalOverlapRatioFast(graph, 0, 100)).toBe(0)
 
       graph.insertNode('B')
       graph.addTemporalEdge('A', 'B', 10, undefined, 20)
       expect(temporalOverlapRatio(graph, 0, 100)).toBe(0)
+      expect(temporalOverlapRatioFast(graph, 0, 100)).toBe(0)
     })
 
-    it('should calculate overlap ratio', () => {
+    it('should calculate overlap ratio consistently across algorithms', () => {
       graph.insertNode('A')
       graph.insertNode('B')
       graph.insertNode('C')
@@ -355,14 +416,34 @@ describe('temporalMetrics', () => {
       graph.addTemporalEdge('B', 'C', 15, undefined, 25)
       graph.addTemporalEdge('A', 'C', 30, undefined, 40)
 
-      // getEdgesInInterval(0, 50) returns all 3 edges
-      // Edge 1 (10-20) and Edge 2 (15-25) overlap
-      // Edge 3 (30-40) doesn't overlap with others
-      // Total pairs: 3 choose 2 = 3
-      // Overlapping pairs: 1 (1-2)
-      // Ratio: 1/3 ≈ 0.333
-      const ratio = temporalOverlapRatio(graph, 0, 50)
-      expect(ratio).toBeCloseTo(1 / 3, 1) // Allow more tolerance
+      const ratioNaive = temporalOverlapRatio(graph, 0, 50)
+      const ratioFast = temporalOverlapRatioFast(graph, 0, 50)
+      const ratioOpt = temporalOverlapRatio(graph, 0, 50, { algorithm: 'fast' })
+
+      expect(ratioNaive).toBeCloseTo(1 / 3, 2)
+      expect(ratioFast).toBeCloseTo(1 / 3, 2)
+      expect(ratioOpt).toBeCloseTo(1 / 3, 2)
+    })
+
+    it('should handle open intervals in fast ratio calculation', () => {
+      graph.insertNode('A')
+      graph.insertNode('B')
+      graph.insertNode('C')
+
+      // Edge 1: 10-20
+      // Edge 2: 15-Infinity (overlaps with 1 and 3)
+      // Edge 3: 35-45 (overlaps with 2)
+      // Pairs: (1-2) yes, (2-3) yes, (1-3) no
+      // Overlapping = 2 / 3 ≈ 0.667
+      graph.addTemporalEdge('A', 'B', 10, undefined, 20)
+      graph.addTemporalEdge('B', 'C', 15) // open
+      graph.addTemporalEdge('A', 'C', 35, undefined, 45)
+
+      const ratioNaive = temporalOverlapRatio(graph, 0, 50)
+      const ratioFast = temporalOverlapRatioFast(graph, 0, 50)
+
+      expect(ratioFast).toBeCloseTo(ratioNaive, 4)
+      expect(ratioFast).toBeCloseTo(2 / 3, 2)
     })
   })
 
@@ -385,6 +466,68 @@ describe('temporalMetrics', () => {
       // Rate: 4 changes / 1 minute = 4 changes/min
       const rate = temporalChangeRate(graph, 0, 60000)
       expect(rate).toBeCloseTo(4, 1)
+    })
+  })
+
+  describe('comprehensive temporal edge cases', () => {
+    it('should return 0 for empty window (t0 === t1) across all metrics', () => {
+      graph.insertNode('A')
+      graph.insertNode('B')
+      graph.addTemporalEdge('A', 'B', 10, undefined, 30)
+
+      expect(totalActiveTime(graph, 20, 20)).toBe(0)
+      expect(averageActiveDuration(graph, 20, 20)).toBe(0)
+      expect(graphAliveRatio(graph, 20, 20)).toBe(0)
+      expect(temporalAcceleration(graph, 20, 20)).toBe(0)
+      expect(temporalIntensity(graph, 20, 20)).toBe(0)
+      expect(temporalOverlapRatio(graph, 20, 20)).toBe(0)
+      expect(temporalOverlapRatioFast(graph, 20, 20)).toBe(0)
+      expect(temporalChangeRate(graph, 20, 20)).toBe(0)
+    })
+
+    it('should return 0 for inverted timestamps (t1 < t0) across all metrics', () => {
+      graph.insertNode('A')
+      graph.insertNode('B')
+      graph.addTemporalEdge('A', 'B', 10, undefined, 30)
+
+      expect(totalActiveTime(graph, 50, 10)).toBe(0)
+      expect(averageActiveDuration(graph, 50, 10)).toBe(0)
+      expect(activationsInInterval(graph, 50, 10)).toBe(0)
+      expect(deactivationsInInterval(graph, 50, 10)).toBe(0)
+      expect(graphAliveRatio(graph, 50, 10)).toBe(0)
+      expect(temporalAcceleration(graph, 50, 10)).toBe(0)
+      expect(temporalIntensity(graph, 50, 10)).toBe(0)
+      expect(temporalOverlapRatio(graph, 50, 10)).toBe(0)
+      expect(temporalOverlapRatioFast(graph, 50, 10)).toBe(0)
+      expect(temporalChangeRate(graph, 50, 10)).toBe(0)
+    })
+
+    it('should properly handle open edges (deactivated_at undefined) across queries', () => {
+      graph.insertNode('A')
+      graph.insertNode('B')
+      graph.addTemporalEdge('A', 'B', 10) // open edge
+
+      // Active count far in the future
+      expect(activeEdgeCountAt(graph, 1000000)).toBe(1)
+
+      // Total active time capped by window
+      expect(totalActiveTime(graph, 20, 50)).toBe(30)
+
+      // Activations and deactivations
+      expect(activationsInInterval(graph, 0, 20)).toBe(1)
+      expect(deactivationsInInterval(graph, 0, 1000)).toBe(0) // never deactivates
+    })
+
+    it('should handle isolated nodes gracefully without affecting metrics', () => {
+      graph.insertNode('A')
+      graph.insertNode('B')
+      graph.insertNode('ISOLATED_1')
+      graph.insertNode('ISOLATED_2')
+
+      graph.addTemporalEdge('A', 'B', 10, undefined, 20)
+
+      expect(activeEdgeCountAt(graph, 15)).toBe(1)
+      expect(totalActiveTime(graph, 0, 30)).toBe(10)
     })
   })
 })

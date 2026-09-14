@@ -70,38 +70,60 @@ describe('nodeMetrics', () => {
       // Node B: 2 edges (incoming and outgoing)
       expect(temporalDegree(graph, 'B', 0, 50)).toBe(2)
     })
+
+    it('should return 0 for empty window or inverted timestamps', () => {
+      graph.insertNode('A')
+      graph.insertNode('B')
+      graph.addTemporalEdge('A', 'B', 10, undefined, 20)
+
+      expect(temporalDegree(graph, 'A', 20, 20)).toBe(0) // empty window
+      expect(temporalDegree(graph, 'A', 30, 10)).toBe(0) // inverted timestamps
+    })
+
+    it('should return 0 for isolated node', () => {
+      graph.insertNode('A')
+      graph.insertNode('B')
+      graph.insertNode('ISOLATED')
+      graph.addTemporalEdge('A', 'B', 10, undefined, 20)
+
+      expect(temporalDegree(graph, 'ISOLATED', 0, 50)).toBe(0)
+    })
   })
 
   describe('nodeLifespan', () => {
-    it('should return 0 for node with no edges', () => {
+    it('should return 0 for node with no edges (isolated node)', () => {
       graph.insertNode('A')
       expect(nodeLifespan(graph, 'A')).toBe(0)
     })
 
-    it('should calculate lifespan correctly', () => {
+    it('should return 0 for non-existent node', () => {
+      expect(nodeLifespan(graph, 'NON_EXISTENT')).toBe(0)
+    })
+
+    it('should calculate lifespan correctly using activated_at and deactivated_at', () => {
       graph.insertNode('A')
       graph.insertNode('B')
       graph.insertNode('C')
 
-      // A's edges activate at: 10, 30
+      // A's edges: A->B (10-20), A->C (30-40)
       graph.addTemporalEdge('A', 'B', 10, undefined, 20)
       graph.addTemporalEdge('A', 'C', 30, undefined, 40)
 
-      // Lifespan: 30 - 10 = 20ms
-      expect(nodeLifespan(graph, 'A')).toBe(20)
+      // Lifespan: max(deactivated_at) - min(activated_at) = 40 - 10 = 30ms
+      expect(nodeLifespan(graph, 'A')).toBe(30)
     })
 
-    it('should handle single edge', () => {
+    it('should handle single edge with deactivated_at', () => {
       graph.insertNode('A')
       graph.insertNode('B')
 
       graph.addTemporalEdge('A', 'B', 10, undefined, 20)
 
-      // Lifespan: 10 - 10 = 0ms (same activation time)
-      expect(nodeLifespan(graph, 'A')).toBe(0)
+      // Lifespan: 20 - 10 = 10ms
+      expect(nodeLifespan(graph, 'A')).toBe(10)
     })
 
-    it('should handle multiple edges with same activation', () => {
+    it('should handle multiple edges with same activation but different deactivations', () => {
       graph.insertNode('A')
       graph.insertNode('B')
       graph.insertNode('C')
@@ -109,21 +131,49 @@ describe('nodeMetrics', () => {
       graph.addTemporalEdge('A', 'B', 10, undefined, 20)
       graph.addTemporalEdge('A', 'C', 10, undefined, 25)
 
-      // Lifespan: 10 - 10 = 0ms
-      expect(nodeLifespan(graph, 'A')).toBe(0)
+      // Lifespan: 25 - 10 = 15ms
+      expect(nodeLifespan(graph, 'A')).toBe(15)
     })
 
     it('should consider both incoming and outgoing edges', () => {
       graph.insertNode('A')
       graph.insertNode('B')
 
-      // A sends at 10
+      // A sends at 10..20
       graph.addTemporalEdge('A', 'B', 10, undefined, 20)
-      // A receives at 30
+      // A receives at 30..40
       graph.addTemporalEdge('B', 'A', 30, undefined, 40)
 
-      // Lifespan: 30 - 10 = 20ms
-      expect(nodeLifespan(graph, 'A')).toBe(20)
+      // Lifespan: 40 - 10 = 30ms
+      expect(nodeLifespan(graph, 'A')).toBe(30)
+    })
+
+    it('should handle open intervals with and without now option', () => {
+      graph.insertNode('A')
+      graph.insertNode('B')
+
+      // A->B starts at 10 with no deactivation
+      graph.addTemporalEdge('A', 'B', 10)
+
+      // Without now: ends at activated_at, so lifespan = 10 - 10 = 0
+      expect(nodeLifespan(graph, 'A')).toBe(0)
+
+      // With now provided as number: 50 - 10 = 40ms
+      expect(nodeLifespan(graph, 'A', 50)).toBe(40)
+
+      // With options object: { now: 100 } -> 100 - 10 = 90ms
+      expect(nodeLifespan(graph, 'A', { now: 100 })).toBe(90)
+    })
+
+    it('should handle inverted timestamps gracefully on edge', () => {
+      graph.insertNode('A')
+      graph.insertNode('B')
+
+      // Inverted edge timestamps: activated at 40, deactivated at 10
+      graph.addTemporalEdge('A', 'B', 40, undefined, 10)
+
+      // Normalized to 10..40, lifespan is 30ms
+      expect(nodeLifespan(graph, 'A')).toBe(30)
     })
   })
 

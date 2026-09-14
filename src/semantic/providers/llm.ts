@@ -26,6 +26,10 @@ export interface LLMCompletionOptions {
   systemPrompt?: string
   /** Stop sequences */
   stop?: string[]
+  /** Ativa modo JSON (response_format: { type: 'json_object' }) */
+  jsonMode?: boolean
+  /** Formato de resposta especificado */
+  responseFormat?: { type: 'text' | 'json_object' }
 }
 
 /**
@@ -59,7 +63,10 @@ export class OpenAILLMProvider implements LLMProvider {
         messages,
         temperature: options?.temperature ?? this.config.temperature ?? 0.7,
         max_tokens: options?.maxTokens ?? this.config.maxTokens,
-        stop: options?.stop
+        stop: options?.stop,
+        ...(options?.jsonMode || options?.responseFormat?.type === 'json_object'
+          ? { response_format: { type: 'json_object' } }
+          : {})
       })
     })
 
@@ -173,7 +180,10 @@ export class OpenRouterLLMProvider implements LLMProvider {
         messages,
         temperature: options?.temperature ?? this.config.temperature ?? 0.7,
         max_tokens: options?.maxTokens ?? this.config.maxTokens,
-        stop: options?.stop
+        stop: options?.stop,
+        ...(options?.jsonMode || options?.responseFormat?.type === 'json_object'
+          ? { response_format: { type: 'json_object' } }
+          : {})
       })
     })
 
