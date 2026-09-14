@@ -26,16 +26,15 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "npx rimraf dist && tsc",
+    "build": "rimraf dist && tsc",
     "dev": "tsc --watch",
-    "test": "jest --coverage",
+    "test": "jest",
+    "test:bun": "bun test",
     "test:watch": "jest --watch",
     "prepublishOnly": "npm run build"
   },
   "jest": {
-    "transform": {
-      ".(ts|tsx)": "ts-jest"
-    },
+    "preset": "ts-jest",
     "testEnvironment": "node",
     "testRegex": "(/__tests__/.*|\\.(test|spec))\\.(ts|tsx|js)$",
     "moduleFileExtensions": [
