@@ -87,8 +87,31 @@ semtempo-graphrag/
 
 ---
 
-## 3. Diretrizes de Manutenção & Escalabilidade
+## 3. `packages/temporal-graph-zig/` (Motor Nativo Zig - High Performance)
 
-1. **Separação Rigorosa**: Nenhuma alteração em `purecore-temporal-graph` deve importar bibliotecas de IA ou provedores externos.
+**Propósito**: Implementação nativa em Zig (v0.16) com altíssima performance, zero dependências externas e gerenciamento manual determinístico de memória.
+
+### Estrutura de Arquivos
+```
+packages/temporal-graph-zig/
+├── build.zig                  # Build system Zig 0.16 (module, lib, exe CLI e tests)
+├── build.zig.zon              # Manifesto do pacote
+├── src/
+│   ├── root.zig               # Re-exportações públicas da biblioteca
+│   ├── graph.zig              # Node, TemporalEdge e TemporalGraph
+│   ├── metrics.zig            # Sweep-line O(n log n), densidade, aceleração, lifespan
+│   ├── pruning.zig            # Decaimento exponencial e relevância
+│   └── main.zig               # CLI executável de demonstração
+├── test/
+│   └── temporal_graph_test.zig# Suíte completa de testes unitários
+└── README.md
+```
+
+---
+
+## 4. Diretrizes de Manutenção & Escalabilidade
+
+1. **Separação Rigorosa**: Nenhuma alteração em `temporal-graph` ou `temporal-graph-zig` deve importar bibliotecas de IA ou provedores externos.
 2. **Reuso Transparente**: O `SemanticTemporalGraph` delega a execução de operações temporais, travessias e pruning ao `TemporalGraph` subjacente.
-3. **Persistência Híbrida**: O `SQLiteGraphStorage` em `purecore-temporal-graph` aceita metadados e vetores semânticos como carga útil (JSON payload), permitindo que travessias recursivas e consultas temporais rodem diretamente em SQL enquanto o `semtempo-graphrag` lida com o embedding e descompactação semântica.
+3. **Persistência Híbrida**: O `SQLiteGraphStorage` em `temporal-graph` aceita metadados e vetores semânticos como carga útil (JSON payload), permitindo que travessias recursivas e consultas temporais rodem diretamente em SQL enquanto o `semtempo-graphrag` lida com o embedding e descompactação semântica.
+4. **Paridade Algorítmica**: Toda nova métrica ou otimização algorítmica (como $O(n \log n)$ de overlap) deve manter paridade exata entre as implementações TypeScript e Zig.

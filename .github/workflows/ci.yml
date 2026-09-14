@@ -60,3 +60,26 @@ jobs:
 
       - name: Build all packages
         run: npm run build
+
+  test-zig:
+    name: Zig 0.16 Test & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v1
+        with:
+          version: master
+
+      - name: Run Zig tests
+        run: |
+          cd packages/temporal-graph-zig
+          zig build test
+
+      - name: Run Zig CLI demonstration
+        run: |
+          cd packages/temporal-graph-zig
+          zig build run
+
