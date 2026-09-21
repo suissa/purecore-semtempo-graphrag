@@ -222,27 +222,22 @@ describe('graphMetrics', () => {
       graph.insertNode('C')
 
       // Edge 1: 10-20
-      // Edge 2: 20-30 (touches at 20, counts as overlap)
+      // Edge 2: 20-30 (touches at 20, but half-open intervals do not overlap)
       graph.addTemporalEdge('A', 'B', 10, undefined, 20)
       graph.addTemporalEdge('B', 'C', 20, undefined, 30)
 
-      expect(edgeOverlapCount(graph)).toBe(1)
-      expect(edgeOverlapCount(graph, { algorithm: 'fast' })).toBe(1)
+      expect(edgeOverlapCount(graph)).toBe(0)
+      expect(edgeOverlapCount(graph, { algorithm: 'fast' })).toBe(0)
     })
 
-    it('should handle inverted timestamps on edges consistently in fast algorithm', () => {
+    it('should reject inverted timestamps instead of normalizing invalid evidence', () => {
       graph.insertNode('A')
       graph.insertNode('B')
       graph.insertNode('C')
 
-      // Edge 1: activated 25, deactivated 10 (inverted -> 10..25)
-      // Edge 2: activated 20, deactivated 30 (20..30)
-      // Overlap: 20..25
-      graph.addTemporalEdge('A', 'B', 25, undefined, 10)
-      graph.addTemporalEdge('B', 'C', 20, undefined, 30)
-
-      expect(edgeOverlapCount(graph)).toBe(1)
-      expect(edgeOverlapCount(graph, { algorithm: 'fast' })).toBe(1)
+      expect(() => graph.addTemporalEdge('A', 'B', 25, undefined, 10)).toThrow(
+        'Invalid half-open temporal interval'
+      )
     })
   })
 

@@ -5,6 +5,24 @@ import {
   edgeRecurrence
 } from '../src/metrics/edgeMetrics'
 
+function makeEdge(start: number, end?: number): TemporalEdge {
+  return {
+    id: `edge-${start}-${end ?? 'open'}`,
+    from: 'A',
+    to: 'B',
+    valid_start: start,
+    valid_end: end,
+    event_time: start,
+    observed_at: start,
+    ingested_at: start,
+    relation_kind: 'adjacency',
+    evidence_refs: [],
+    created_at: start,
+    activated_at: start,
+    deactivated_at: end
+  }
+}
+
 describe('edgeMetrics', () => {
   let graph: TemporalGraph<string, any>
 
@@ -14,41 +32,20 @@ describe('edgeMetrics', () => {
 
   describe('edgeDuration', () => {
     it('should calculate duration for closed edge', () => {
-      const edge: TemporalEdge = {
-        id: 'test',
-        from: 'A',
-        to: 'B',
-        created_at: 0,
-        activated_at: 10,
-        deactivated_at: 30
-      }
+      const edge = makeEdge(10, 30)
 
       expect(edgeDuration(edge)).toBe(20)
     })
 
     it('should use now for open edge', () => {
       const now = 100
-      const edge: TemporalEdge = {
-        id: 'test',
-        from: 'A',
-        to: 'B',
-        created_at: 0,
-        activated_at: 10
-        // No deactivation
-      }
+      const edge = makeEdge(10)
 
       expect(edgeDuration(edge, now)).toBe(90) // 100 - 10
     })
 
     it('should default to Date.now() when now not provided', () => {
-      const edge: TemporalEdge = {
-        id: 'test',
-        from: 'A',
-        to: 'B',
-        created_at: 0,
-        activated_at: Date.now() - 1000 // 1 second ago
-        // No deactivation
-      }
+      const edge = makeEdge(Date.now() - 1000)
 
       const duration = edgeDuration(edge)
       // Should be approximately 1000ms (within 100ms tolerance)
@@ -57,14 +54,7 @@ describe('edgeMetrics', () => {
     })
 
     it('should handle zero duration', () => {
-      const edge: TemporalEdge = {
-        id: 'test',
-        from: 'A',
-        to: 'B',
-        created_at: 0,
-        activated_at: 10,
-        deactivated_at: 10
-      }
+      const edge = makeEdge(10, 10)
 
       expect(edgeDuration(edge)).toBe(0)
     })

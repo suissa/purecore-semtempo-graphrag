@@ -6,6 +6,7 @@ import {
   CompressEdgeOptions,
   IGraphStorageAdapter
 } from '@purecore/temporal-graph'
+import type { TemporalEdgeOptions, TemporalNodeOptions } from '@purecore/temporal-graph'
 
 import {
   SemanticNodeData,
@@ -73,12 +74,12 @@ export class SemanticTemporalGraph<
     this.llmProvider = createLLMProvider(config)
   }
 
-  async insertNode(data: NodeData): Promise<SemanticTemporalNode> {
+  async insertNode(data: NodeData, temporal: TemporalNodeOptions = {}): Promise<SemanticTemporalNode> {
     if (!data.embedding && this.embeddingProvider) {
       data.embedding = await this.embeddingProvider.embed(data.text)
     }
 
-    const node = this.graph.insertNode(data)
+    const node = this.graph.insertNode(data, temporal)
     return node as SemanticTemporalNode
   }
 
@@ -87,13 +88,14 @@ export class SemanticTemporalGraph<
     to: string | NodeData,
     activated_at: number,
     data?: EdgeData,
-    deactivated_at?: number
+    validEnd?: number,
+    temporal: TemporalEdgeOptions = {}
   ): Promise<SemanticTemporalEdge> {
     if (data?.text && !data.embedding && this.embeddingProvider) {
       data.embedding = await this.embeddingProvider.embed(data.text)
     }
 
-    return this.graph.addTemporalEdge(from, to, activated_at, data, deactivated_at) as SemanticTemporalEdge
+    return this.graph.addTemporalEdge(from, to, activated_at, data, validEnd, temporal) as SemanticTemporalEdge
   }
 
   async search(options: SemanticSearchOptions): Promise<SemanticSearchResult[]> {
@@ -101,7 +103,13 @@ export class SemanticTemporalGraph<
       throw new Error('Embedding provider must be configured for vector/similarity/hybrid search')
     }
 
-    const nodes = this.graph.getAllNodes() as SemanticTemporalNode[]
+    const nodes = (this.graph.getAllNodes() as SemanticTemporalNode[]).filter(node =>
+      (options.validAt === undefined ||
+        (node.valid_start === undefined || node.valid_start <= options.validAt) &&
+        (node.valid_end === undefined || options.validAt < node.valid_end)) &&
+      (options.observedBefore === undefined ||
+        node.observed_at === undefined || node.observed_at <= options.observedBefore)
+    )
 
     switch (options.searchType) {
       case 'similarity':
@@ -109,16 +117,16 @@ export class SemanticTemporalGraph<
           options.query,
           nodes,
           this.embeddingProvider!,
-          options.threshold || 0.7,
-          options.limit || 10
+          options.threshold ?? 0.7,
+          options.limit ?? 10
         )
 
       case 'fuzzy':
         return searchFuzzy(
           options.query,
           nodes,
-          options.threshold || 0.6,
-          options.limit || 10
+          options.threshold ?? 0.6,
+          options.limit ?? 10
         )
 
       case 'vector':
@@ -127,10 +135,10 @@ export class SemanticTemporalGraph<
         }
         const vectorConfig: VectorSearchConfig = {
           fields: options.fields,
-          threshold: options.threshold || 0.7,
-          useFallback: options.useFallback || false,
+          threshold: options.threshold ?? 0.7,
+          useFallback: options.useFallback ?? false,
           onBelowThreshold: options.useFallback
-            ? (results) => results.slice(0, options.limit || 10)
+            ? (results) => results.slice(0, options.limit ?? 10)
             : undefined
         }
         return searchVector(options.query, nodes, this.embeddingProvider!, vectorConfig)

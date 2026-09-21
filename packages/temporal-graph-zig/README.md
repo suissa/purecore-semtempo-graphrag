@@ -12,13 +12,14 @@
 
 `@purecore/temporal-graph-zig` is a systems-level implementation of temporal interval graphs designed for **GraphRAG**, knowledge retrieval over time-evolving networks, conversational memory analytics, and high-frequency event streaming.
 
-Unlike static graphs or snapshot-based temporal representations, this engine models relationships as continuous temporal intervals $[t_{\text{start}}, t_{\text{end}}]$ with open-ended edge support and provides sub-quadratic algorithms for interval intersection and topological metrics.
+Unlike static graphs or snapshot-based temporal representations, this engine models relationships as half-open temporal intervals $[t_{\text{start}}, t_{\text{end}})$ with open-ended edge support and provides sub-quadratic algorithms for interval intersection and topological metrics.
 
 ### Key Highlights
 
 - ⚡ **$\mathcal{O}(n \log n)$ Sweep-Line Algorithms**: Fast edge overlap counting and temporal overlap ratio using two-pointer coordinate sweep.
 - 🛡️ **Guaranteed Memory Safety**: Zero leaks verified by `std.testing.allocator` across all test suites; explicit memory allocation via `std.mem.Allocator`.
-- 🔄 **Inverted Timestamp Normalization**: Automatically treats inverted intervals ($\text{end} < \text{start}$) safely using $\min/\max$ bounds.
+- 🧭 **Strict Temporal Contract**: Rejects inverted or zero-duration intervals instead of silently rewriting evidence.
+- 🔗 **Evidence-Gated Causality**: Causal edges require evidence or an explicit causation identifier; adjacency never implies causality.
 - ⏱️ **Temporal Metrics Suite**: Temporal density (3 modes), temporal acceleration, normalized alive ratio, node lifespan, and interaction velocity.
 - 📉 **Exponential Decay Pruning**: Configurable temporal half-life and access-count boosting for recency-aware memory eviction.
 - 📦 **Zero External Dependencies**: Self-contained standard library implementation compatible with Zig 0.16.0.

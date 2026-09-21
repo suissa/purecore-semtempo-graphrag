@@ -1,4 +1,5 @@
 import { TemporalGraph } from '../temporalGraph'
+import { InvalidTemporalIntervalError } from '../errors'
 
 export interface TemporalDensityOptions {
   /**
@@ -69,8 +70,8 @@ export function temporalDensity<NodeData, EdgeData>(
 /**
  * Função utilitária para contar sobreposições de intervalos em O(n log n).
  * 
- * Dois intervalos [s_i, e_i] e [s_j, e_j] se sobrepõem se e_i >= s_j e e_j >= s_i.
- * De forma complementar, não se sobrepõem se um termina estritamente antes do outro começar (e_i < s_j ou e_j < s_i).
+ * Intervalos semiabertos [s_i, e_i) e [s_j, e_j) se sobrepõem quando
+ * max(s_i, s_j) < min(e_i, e_j). Encostar na borda não é sobreposição.
  * 
  * Complexidade:
  * - Tempo: O(n log n) devido à ordenação dos timestamps de início e fim.
@@ -90,12 +91,7 @@ export function countIntervalOverlaps(
     let s = item.activated_at
     let e = item.deactivated_at ?? Infinity
 
-    // Se timestamps estiverem invertidos na própria aresta, normaliza min e max
-    if (s > e) {
-      const tmp = s
-      s = e
-      e = tmp
-    }
+    if (e <= s) throw new InvalidTemporalIntervalError(s, e)
 
     starts[i] = s
     ends[i] = e
@@ -110,7 +106,7 @@ export function countIntervalOverlaps(
   // Para cada início, conta quantos intervalos já terminaram estritamente antes deste início
   for (let i = 0; i < n; i++) {
     const s = starts[i]
-    while (endIdx < n && ends[endIdx] < s) {
+    while (endIdx < n && ends[endIdx] <= s) {
       endIdx++
     }
     nonOverlaps += endIdx
@@ -148,18 +144,10 @@ export function edgeOverlapCount<NodeData, EdgeData>(
       let bStart = b.activated_at
       let bEnd = b.deactivated_at ?? Infinity
 
-      if (aStart > aEnd) {
-        const tmp = aStart
-        aStart = aEnd
-        aEnd = tmp
-      }
-      if (bStart > bEnd) {
-        const tmp = bStart
-        bStart = bEnd
-        bEnd = tmp
-      }
+      if (aEnd <= aStart) throw new InvalidTemporalIntervalError(aStart, aEnd)
+      if (bEnd <= bStart) throw new InvalidTemporalIntervalError(bStart, bEnd)
 
-      const overlap = aEnd >= bStart && bEnd >= aStart
+      const overlap = aStart < bEnd && bStart < aEnd
       if (overlap) count++
     }
   }

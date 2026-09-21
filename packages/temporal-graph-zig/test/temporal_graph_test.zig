@@ -2,6 +2,10 @@ const std = @import("std");
 const testing = std.testing;
 const tg = @import("temporal_graph");
 
+fn addNodes(graph: *tg.TemporalGraph, ids: []const []const u8) !void {
+    for (ids) |id| try graph.addNode(id, null);
+}
+
 test "TemporalGraph - add nodes and temporal edges" {
     var graph = tg.TemporalGraph.init(testing.allocator);
     defer graph.deinit();
@@ -21,7 +25,8 @@ test "TemporalGraph - add nodes and temporal edges" {
     try graph.addEdge("A", "B", 1000, 5000, 1.0);
     try testing.expectEqual(@as(usize, 1), graph.getEdgeCount());
 
-    // Adiciona aresta para nós não cadastrados previamente (auto-criação)
+    // As implementações TS e Zig rejeitam arestas com nós ausentes.
+    try graph.addNode("C", null);
     try graph.addEdge("B", "C", 2000, 6000, 1.0);
     try testing.expect(graph.hasNode("C"));
     try testing.expectEqual(@as(usize, 3), graph.getNodeCount());
@@ -31,6 +36,7 @@ test "TemporalGraph - add nodes and temporal edges" {
 test "TemporalGraph - active edges queries" {
     var graph = tg.TemporalGraph.init(testing.allocator);
     defer graph.deinit();
+    try addNodes(&graph, &.{ "A", "B", "C", "D" });
 
     try graph.addEdge("A", "B", 1000, 5000, 1.0);
     try graph.addEdge("B", "C", 4000, 8000, 1.0);
@@ -65,6 +71,7 @@ test "TemporalGraph - active edges queries" {
 test "Sweep-Line O(n log n) vs Quadratic O(n^2) overlap algorithm" {
     var graph = tg.TemporalGraph.init(testing.allocator);
     defer graph.deinit();
+    try addNodes(&graph, &.{ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12" });
 
     // Grafo vazio
     try testing.expectEqual(@as(usize, 0), try tg.edgeOverlapCountFast(&graph, testing.allocator));
@@ -97,7 +104,7 @@ test "Sweep-Line O(n log n) vs Quadratic O(n^2) overlap algorithm" {
     try testing.expectEqual(@as(usize, 5), fast2);
     try testing.expectEqual(quad2, fast2);
 
-    // Adiciona aresta tocando na borda [600, 700] -> toca em [500, 600] e sobrepõe com aberta [250, null]
+    // Em intervalos semiabertos, [600, 700) não sobrepõe [500, 600).
     try graph.addEdge("11", "12", 600, 700, 1.0);
     const fast3 = try tg.edgeOverlapCountFast(&graph, testing.allocator);
     const quad3 = tg.edgeOverlapCountQuadratic(&graph);
@@ -137,6 +144,7 @@ test "Metrics - temporalDensity with modes and edge cases" {
 test "Metrics - temporalAcceleration and perMinute" {
     var graph = tg.TemporalGraph.init(testing.allocator);
     defer graph.deinit();
+    try addNodes(&graph, &.{ "A", "B", "C", "D", "E" });
 
     // Janela vazia
     try testing.expectEqual(0.0, tg.temporalAcceleration(&graph, 1000, 1000, .{}));
@@ -163,6 +171,7 @@ test "Metrics - temporalAcceleration and perMinute" {
 test "Metrics - graphAliveRatio and edge cases" {
     var graph = tg.TemporalGraph.init(testing.allocator);
     defer graph.deinit();
+    try addNodes(&graph, &.{ "A", "B", "C" });
 
     // Edge cases
     try testing.expectEqual(0.0, tg.graphAliveRatio(&graph, 1000, 1000, false));
@@ -186,6 +195,7 @@ test "Metrics - nodeLifespan with deactivated_at, now, and isolated nodes" {
     defer graph.deinit();
 
     try graph.addNode("isolated", null);
+    try addNodes(&graph, &.{ "user", "agent", "billing", "support" });
     try testing.expectEqual(@as(i64, 0), tg.nodeLifespan(&graph, "isolated", .{}));
     try testing.expectEqual(@as(i64, 0), tg.nodeLifespan(&graph, "nonexistent", .{}));
 
@@ -200,6 +210,31 @@ test "Metrics - nodeLifespan with deactivated_at, now, and isolated nodes" {
     try graph.addEdge("user", "support", 5000, null, 1.0);
     const lifespan_now = tg.nodeLifespan(&graph, "user", .{ .now = 12000 });
     try testing.expectEqual(@as(i64, 11000), lifespan_now);
+}
+
+test "Temporal contract - rejects inverted intervals and unsupported causality" {
+    var graph = tg.TemporalGraph.init(testing.allocator);
+    defer graph.deinit();
+    try addNodes(&graph, &.{ "event:A", "event:B" });
+
+    try testing.expectError(
+        error.InvalidTemporalInterval,
+        graph.addEdge("event:A", "event:B", 20, 10, 1.0),
+    );
+    try testing.expectError(
+        error.CausalEvidenceRequired,
+        graph.addEdgeWithOptions("event:A", "event:B", 10, 20, 1.0, .{ .relation_kind = .causal }),
+    );
+
+    try graph.addEdgeWithOptions("event:A", "event:B", 10, 20, 1.0, .{
+        .relation_kind = .causal,
+        .evidence_count = 1,
+        .observed_at = 12,
+        .ingested_at = 14,
+    });
+    try testing.expect(graph.edges.items[0].isCanonicalEvidence());
+    try testing.expect(graph.edges.items[0].isEffectivelyActiveAt(10));
+    try testing.expect(!graph.edges.items[0].isEffectivelyActiveAt(20));
 }
 
 test "Pruning - exponential decay and relevance" {

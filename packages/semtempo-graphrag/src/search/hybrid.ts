@@ -8,7 +8,7 @@ function combineResults(
   results: SemanticSearchResult[],
   weights: Record<string, number> = {}
 ): SemanticSearchResult[] {
-  const combined = new Map<string, SemanticSearchResult & { combinedScore: number }>()
+  const combined = new Map<string, SemanticSearchResult & { combinedScore: number; totalWeight: number }>()
 
   for (const result of results) {
     const key = result.node.id
@@ -18,6 +18,7 @@ function combineResults(
     if (combined.has(key)) {
       const existing = combined.get(key)!
       existing.combinedScore += weightedScore
+      existing.totalWeight += weight
       if (result.matchedFields) {
         existing.matchedFields = [
           ...new Set([...(existing.matchedFields || []), ...result.matchedFields])
@@ -29,15 +30,16 @@ function combineResults(
     } else {
       combined.set(key, {
         ...result,
-        combinedScore: weightedScore
+        combinedScore: weightedScore,
+        totalWeight: weight
       })
     }
   }
 
   return Array.from(combined.values())
-    .map(({ combinedScore, ...rest }) => ({
+    .map(({ combinedScore, totalWeight, ...rest }) => ({
       ...rest,
-      score: combinedScore
+      score: totalWeight === 0 ? 0 : combinedScore / totalWeight
     }))
     .sort((a, b) => b.score - a.score)
 }
@@ -56,14 +58,14 @@ export async function searchHybrid(
     exact: 1.0
   }
 
-  if (options.searchType === 'vector' || options.searchType === 'similarity' || !options.searchType) {
+  if (options.searchType === 'vector' || options.searchType === 'similarity' || options.searchType === 'hybrid' || !options.searchType) {
     if (options.fields && options.fields.length > 0) {
       const vectorConfig: VectorSearchConfig = {
         fields: options.fields,
-        threshold: options.threshold || 0.7,
-        useFallback: options.useFallback || false,
+        threshold: options.threshold ?? 0.7,
+        useFallback: options.useFallback ?? false,
         onBelowThreshold: options.useFallback
-          ? (results) => results.slice(0, options.limit || 10)
+          ? (results) => results.slice(0, options.limit ?? 10)
           : undefined
       }
       const vectorResults = await searchVector(query, nodes, embeddingProvider, vectorConfig)
@@ -73,8 +75,8 @@ export async function searchHybrid(
         query,
         nodes,
         embeddingProvider,
-        options.threshold || 0.7,
-        options.limit || 10
+        options.threshold ?? 0.7,
+        options.limit ?? 10
       )
       allResults.push(...similarityResults)
     }
@@ -84,8 +86,8 @@ export async function searchHybrid(
     const fuzzyResults = searchFuzzy(
       query,
       nodes,
-      options.threshold || 0.6,
-      options.limit || 10
+      options.threshold ?? 0.6,
+      options.limit ?? 10
     )
     allResults.push(...fuzzyResults)
   }
@@ -101,5 +103,5 @@ export async function searchHybrid(
     }
   }
 
-  return unique.slice(0, options.limit || 10)
+  return unique.slice(0, options.limit ?? 10)
 }

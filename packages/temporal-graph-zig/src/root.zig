@@ -7,6 +7,8 @@ pub const pruning = @import("pruning.zig");
 pub const Node = graph.Node;
 pub const TemporalEdge = graph.TemporalEdge;
 pub const TemporalGraph = graph.TemporalGraph;
+pub const RelationKind = graph.RelationKind;
+pub const EdgeOptions = graph.EdgeOptions;
 
 pub const DensityMode = metrics.DensityMode;
 pub const DensityOptions = metrics.DensityOptions;
@@ -25,5 +27,4 @@ pub const interactionVelocity = metrics.interactionVelocity;
 
 pub const exponentialDecay = pruning.exponentialDecay;
 pub const calculateRelevanceScore = pruning.calculateRelevanceScore;
-
 

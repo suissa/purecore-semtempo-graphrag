@@ -1,7 +1,7 @@
 import { SemanticTemporalGraph } from '../src/semanticTemporalGraph'
 
 describe('SemanticTemporalGraph Layer', () => {
-  let graph: SemanticTemporalGraph
+  let graph: SemanticTemporalGraph<{ id: string; text: string }>
 
   beforeEach(() => {
     graph = new SemanticTemporalGraph<{ id: string; text: string }>(d => d.id)
@@ -38,5 +38,32 @@ describe('SemanticTemporalGraph Layer', () => {
       .execute()
 
     expect(result.nodes.map(n => n.id)).toEqual(['A', 'B'])
+  })
+
+  it('scopes semantic candidates by valid time and observation time', async () => {
+    await graph.insertNode(
+      { id: 'old', text: 'Payment behavior' },
+      { valid_start: 0, valid_end: 20, observed_at: 5 }
+    )
+    await graph.insertNode(
+      { id: 'current', text: 'Payment behavior' },
+      { valid_start: 20, observed_at: 30 }
+    )
+
+    const historical = await graph.search({
+      query: 'Payment behavior',
+      searchType: 'fuzzy',
+      validAt: 10,
+      observedBefore: 10
+    })
+    expect(historical.map(result => result.node.id)).toEqual(['old'])
+
+    const notKnownYet = await graph.search({
+      query: 'Payment behavior',
+      searchType: 'fuzzy',
+      validAt: 25,
+      observedBefore: 25
+    })
+    expect(notKnownYet).toEqual([])
   })
 })

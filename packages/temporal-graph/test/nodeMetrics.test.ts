@@ -165,15 +165,13 @@ describe('nodeMetrics', () => {
       expect(nodeLifespan(graph, 'A', { now: 100 })).toBe(90)
     })
 
-    it('should handle inverted timestamps gracefully on edge', () => {
+    it('should reject inverted timestamps', () => {
       graph.insertNode('A')
       graph.insertNode('B')
 
-      // Inverted edge timestamps: activated at 40, deactivated at 10
-      graph.addTemporalEdge('A', 'B', 40, undefined, 10)
-
-      // Normalized to 10..40, lifespan is 30ms
-      expect(nodeLifespan(graph, 'A')).toBe(30)
+      expect(() => graph.addTemporalEdge('A', 'B', 40, undefined, 10)).toThrow(
+        'Invalid half-open temporal interval'
+      )
     })
   })
 

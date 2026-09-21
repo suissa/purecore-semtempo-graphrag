@@ -37,6 +37,34 @@ O **SemTempo GraphRAG** é uma biblioteca TypeScript poderosa que combina:
 - 🔍 **Busca Inteligente**: Encontre informações relacionadas semanticamente
 - 🤖 **Geração de Insights**: IA para identificar oportunidades e problemas
 
+### Contrato temporal e causal
+
+Desde a versão seguinte a `0.1.0`, o motor diferencia explicitamente:
+
+- validade no domínio: `[valid_start, valid_end)`;
+- ocorrência: `event_time`;
+- conhecimento pelo runtime: `observed_at`;
+- entrada na projeção: `ingested_at`.
+
+As relações são classificadas como `adjacency`, `causal`, `semantic`,
+`behavioral` ou `observational`. Uma aresta causal exige `causation_id` ou
+`evidence_refs`; sequência temporal e similaridade semântica nunca são
+consideradas prova de causalidade.
+
+```typescript
+graph.addTemporalEdge('event:A', 'event:B', 1_000, undefined, 2_000, {
+  relation_kind: 'causal',
+  event_id: 'event:B',
+  causation_id: 'event:A',
+  evidence_refs: [{ kind: 'event', id: 'event:A' }],
+  trace_id: 'trace:checkout',
+  span_id: 'span:payment'
+})
+```
+
+O SQLite, a busca semântica e o pruning operam como projeções reconstruíveis.
+Por padrão, pruning e compressão preservam toda aresta causal ou apoiada por evidência.
+
 ---
 
 ## 📦 Instalação {#instalacao}
