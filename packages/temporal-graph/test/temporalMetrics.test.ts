@@ -170,13 +170,13 @@ describe('temporalMetrics', () => {
       expect(activationsInInterval(graph, 10, 30)).toBe(3) // All
     })
 
-    it('should include boundaries', () => {
+    it('should use half-open query boundaries', () => {
       graph.insertNode('A')
       graph.insertNode('B')
 
       graph.addTemporalEdge('A', 'B', 10, undefined, 20)
 
-      expect(activationsInInterval(graph, 10, 10)).toBe(1)
+      expect(activationsInInterval(graph, 10, 10)).toBe(0)
       expect(activationsInInterval(graph, 10, 15)).toBe(1)
     })
   })

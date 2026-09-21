@@ -1,4 +1,10 @@
-import { TemporalGraph, TemporalEdge, TemporalNode } from '../temporalGraph'
+import {
+  EvidenceKind,
+  TemporalGraph,
+  TemporalEdge,
+  TemporalNode,
+  TemporalRelationKind
+} from '../temporalGraph'
 import { TraversalConfig, SortStrategy, SortDirection, QueryResult } from './types'
 import { GraphPruner } from '../pruning/graphPruner'
 
@@ -6,6 +12,9 @@ export class GraphQueryBuilder<NodeData = any, EdgeData = any> {
   private startTime?: number
   private endTime?: number
   private activeAtTime?: number
+  private observedAsOf?: number
+  private allowedRelationKinds?: Set<TemporalRelationKind>
+  private requiredEvidenceKinds?: Set<EvidenceKind>
   private startNodeIds: Set<string> = new Set()
   private traversalConfig?: TraversalConfig
   private nodePredicates: ((node: TemporalNode<NodeData>) => boolean)[] = []
@@ -27,6 +36,26 @@ export class GraphQueryBuilder<NodeData = any, EdgeData = any> {
 
   activeAt(timestamp: number): this {
     this.activeAtTime = timestamp
+    return this
+  }
+
+  /** Reconstruct only records already known at this observation time. */
+  observedBefore(timestamp: number): this {
+    this.observedAsOf = timestamp
+    return this
+  }
+
+  relations(...kinds: TemporalRelationKind[]): this {
+    this.allowedRelationKinds = new Set(kinds)
+    return this
+  }
+
+  causalOnly(): this {
+    return this.relations('causal')
+  }
+
+  evidence(...kinds: EvidenceKind[]): this {
+    this.requiredEvidenceKinds = new Set(kinds)
     return this
   }
 
@@ -86,8 +115,33 @@ export class GraphQueryBuilder<NodeData = any, EdgeData = any> {
 
     if (this.activeAtTime !== undefined) {
       candidateEdges = rawGraph.getActiveEdgesAt(this.activeAtTime)
+      candidateNodes = candidateNodes.filter(node =>
+        (node.valid_start === undefined || node.valid_start <= this.activeAtTime!) &&
+        (node.valid_end === undefined || this.activeAtTime! < node.valid_end)
+      )
     } else if (this.startTime !== undefined && this.endTime !== undefined) {
       candidateEdges = rawGraph.getEdgesInInterval(this.startTime, this.endTime)
+      candidateNodes = candidateNodes.filter(node =>
+        (node.valid_start === undefined || node.valid_start < this.endTime!) &&
+        (node.valid_end === undefined || this.startTime! < node.valid_end)
+      )
+    }
+
+    if (this.observedAsOf !== undefined) {
+      candidateEdges = candidateEdges.filter(edge => edge.observed_at <= this.observedAsOf!)
+      candidateNodes = candidateNodes.filter(node =>
+        node.observed_at === undefined || node.observed_at <= this.observedAsOf!
+      )
+    }
+
+    if (this.allowedRelationKinds) {
+      candidateEdges = candidateEdges.filter(edge => this.allowedRelationKinds!.has(edge.relation_kind))
+    }
+
+    if (this.requiredEvidenceKinds) {
+      candidateEdges = candidateEdges.filter(edge =>
+        edge.evidence_refs.some(ref => this.requiredEvidenceKinds!.has(ref.kind))
+      )
     }
 
     if (this.startNodeIds.size > 0) {
@@ -103,6 +157,8 @@ export class GraphQueryBuilder<NodeData = any, EdgeData = any> {
 
         while (queue.length > 0) {
           const { id, currentDepth, path } = queue.shift()!
+          if (visitedNodeIds.size >= (this.traversalConfig.maxVisited ?? 1000)) break
+          if (visitedNodeIds.has(id)) continue
           visitedNodeIds.add(id)
           paths.push(path)
 
@@ -162,12 +218,12 @@ export class GraphQueryBuilder<NodeData = any, EdgeData = any> {
     const totalNodes = candidateNodes.length
     const totalEdges = candidateEdges.length
 
-    if (this.offsetValue) {
+    if (this.offsetValue !== undefined) {
       candidateNodes = candidateNodes.slice(this.offsetValue)
       candidateEdges = candidateEdges.slice(this.offsetValue)
     }
 
-    if (this.limitValue) {
+    if (this.limitValue !== undefined) {
       candidateNodes = candidateNodes.slice(0, this.limitValue)
       candidateEdges = candidateEdges.slice(0, this.limitValue)
     }

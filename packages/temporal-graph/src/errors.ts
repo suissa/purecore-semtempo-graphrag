@@ -60,3 +60,19 @@ export class CycleError extends Error {
     Object.setPrototypeOf(this, CycleError.prototype)
   }
 }
+
+export class InvalidTemporalIntervalError extends Error {
+  constructor(public start: number, public end?: number) {
+    super(`Invalid half-open temporal interval [${start}, ${end ?? '∞'}): end must be greater than start`)
+    this.name = 'InvalidTemporalIntervalError'
+    Object.setPrototypeOf(this, InvalidTemporalIntervalError.prototype)
+  }
+}
+
+export class EdgeAlreadyExistsError extends Error {
+  constructor(public identity: string) {
+    super(`An edge with identity ${identity} already exists in the graph`)
+    this.name = 'EdgeAlreadyExistsError'
+    Object.setPrototypeOf(this, EdgeAlreadyExistsError.prototype)
+  }
+}

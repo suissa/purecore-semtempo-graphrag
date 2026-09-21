@@ -44,7 +44,7 @@ pub fn edgeOverlapCountFast(graph: *const TemporalGraph, alloc: Allocator) !usiz
     var end_idx: usize = 0;
 
     for (starts) |s| {
-        while (end_idx < n and ends[end_idx] < s) {
+        while (end_idx < n and ends[end_idx] <= s) {
             end_idx += 1;
         }
         disjoint_pairs += end_idx;
@@ -72,7 +72,7 @@ pub fn edgeOverlapCountQuadratic(graph: *const TemporalGraph) usize {
             const s2 = edges[j].getEffectiveStart();
             const e2 = edges[j].getEffectiveEnd() orelse std.math.maxInt(i64);
 
-            if (@max(s1, s2) <= @min(e1, e2)) {
+            if (@max(s1, s2) < @min(e1, e2)) {
                 count += 1;
             }
         }
@@ -118,7 +118,7 @@ pub fn temporalOverlapRatioFast(
     var end_idx: usize = 0;
 
     for (starts) |s| {
-        while (end_idx < k and ends[end_idx] < s) {
+        while (end_idx < k and ends[end_idx] <= s) {
             end_idx += 1;
         }
         disjoint += end_idx;
@@ -180,7 +180,7 @@ pub fn temporalDensity(
                     const s = @max(edge.getEffectiveStart(), t0);
                     const raw_e = edge.getEffectiveEnd() orelse std.math.maxInt(i64);
                     const e = @min(raw_e, t1);
-                    if (e >= s) {
+                    if (e > s) {
                         total_active += @as(f64, @floatFromInt(e - s));
                     }
                 }
@@ -222,7 +222,7 @@ pub fn temporalAcceleration(
         if (start >= t0 and start < mid) {
             a0 += 1.0;
         }
-        if (start >= mid and start <= t1) {
+        if (start >= mid and start < t1) {
             a1 += 1.0;
         }
     }
@@ -256,7 +256,7 @@ pub fn graphAliveRatio(
             const s = @max(edge.getEffectiveStart(), t0);
             const raw_e = edge.getEffectiveEnd() orelse std.math.maxInt(i64);
             const e = @min(raw_e, t1);
-            if (e >= s) {
+            if (e > s) {
                 total_active += @as(f64, @floatFromInt(e - s));
             }
         }
@@ -330,7 +330,7 @@ pub fn interactionVelocity(graph: *const TemporalGraph, t0: i64, t1: i64) f64 {
     var activations: usize = 0;
     for (graph.edges.items) |edge| {
         const s = edge.getEffectiveStart();
-        if (s >= t0 and s <= t1) {
+        if (s >= t0 and s < t1) {
             activations += 1;
         }
     }

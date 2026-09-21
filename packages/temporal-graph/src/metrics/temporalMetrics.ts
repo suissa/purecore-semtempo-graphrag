@@ -82,7 +82,7 @@ export function activationsInInterval<NodeData, EdgeData>(
 ): number {
   if (t1 < t0) return 0
   return graph.getAllEdges().filter(
-    e => e.activated_at >= t0 && e.activated_at <= t1
+    e => e.activated_at >= t0 && e.activated_at < t1
   ).length
 }
 
@@ -102,7 +102,7 @@ export function deactivationsInInterval<NodeData, EdgeData>(
     e =>
       e.deactivated_at !== undefined &&
       e.deactivated_at >= t0 &&
-      e.deactivated_at <= t1
+      e.deactivated_at < t1
   ).length
 }
 
@@ -283,18 +283,7 @@ export function temporalOverlapRatio<NodeData, EdgeData>(
       let bStart = b.activated_at
       let bEnd = b.deactivated_at ?? Infinity
 
-      if (aStart > aEnd) {
-        const tmp = aStart
-        aStart = aEnd
-        aEnd = tmp
-      }
-      if (bStart > bEnd) {
-        const tmp = bStart
-        bStart = bEnd
-        bEnd = tmp
-      }
-
-      const overlap = aEnd >= bStart && bEnd >= aStart
+      const overlap = aStart < bEnd && bStart < aEnd
       if (overlap) overlaps++
     }
   }

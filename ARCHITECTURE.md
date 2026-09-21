@@ -115,3 +115,39 @@ packages/temporal-graph-zig/
 2. **Reuso Transparente**: O `SemanticTemporalGraph` delega a execução de operações temporais, travessias e pruning ao `TemporalGraph` subjacente.
 3. **Persistência Híbrida**: O `SQLiteGraphStorage` em `temporal-graph` aceita metadados e vetores semânticos como carga útil (JSON payload), permitindo que travessias recursivas e consultas temporais rodem diretamente em SQL enquanto o `semtempo-graphrag` lida com o embedding e descompactação semântica.
 4. **Paridade Algorítmica**: Toda nova métrica ou otimização algorítmica (como $O(n \log n)$ de overlap) deve manter paridade exata entre as implementações TypeScript e Zig.
+
+---
+
+## 5. Contrato Temporal e Causal
+
+O motor usa intervalos semiabertos: `valid_start <= t < valid_end`. Um intervalo
+invertido ou de duração zero é inválido e nunca é normalizado silenciosamente.
+
+Cada aresta separa três relógios:
+
+- `event_time`: quando o domínio afirma que o fato ocorreu;
+- `observed_at`: quando o runtime tomou conhecimento do fato;
+- `ingested_at`: quando o fato entrou nesta projeção.
+
+`relation_kind=adjacency` é o padrão. Ordem, proximidade temporal, similaridade
+semântica e sequência de ingestão jamais promovem uma aresta a causal. Uma aresta
+`causal` exige `evidence_refs` ou `causation_id` explícito.
+
+O SQLite e a camada semântica são projeções reconstruíveis. Pruning e compressão
+não removem arestas causais ou com evidência por padrão. O Event Store permanece
+a autoridade dos fatos canônicos.
+
+### Consulta point-in-time
+
+```ts
+graph.query()
+  .activeAt(validTime)
+  .observedBefore(asOf)
+  .causalOnly()
+  .evidence('event', 'trace')
+  .fromNode('entity:123')
+  .traverse({ depth: 3, direction: 'both' })
+```
+
+A busca semântica somente seleciona candidatos. Ela não cria nem confirma
+evidência causal.

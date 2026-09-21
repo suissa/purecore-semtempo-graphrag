@@ -2,8 +2,25 @@ export { default as Graph } from './graph'
 export { default as DirectedGraph } from './directedGraph'
 export { default as DirectedAcyclicGraph } from './directedAcyclicGraph'
 export { TemporalGraph } from './temporalGraph'
-export type { TemporalNode, TemporalEdge } from './temporalGraph'
-export { NodeAlreadyExistsError, NodeDoesntExistError, CycleError } from './errors'
+export type {
+  TemporalNode,
+  TemporalEdge,
+  ValidTime,
+  ObservationTime,
+  TemporalRelationKind,
+  EvidenceKind,
+  EvidenceRef,
+  TemporalNodeOptions,
+  TemporalEdgeOptions,
+  TemporalGraphOptions
+} from './temporalGraph'
+export {
+  NodeAlreadyExistsError,
+  NodeDoesntExistError,
+  CycleError,
+  InvalidTemporalIntervalError,
+  EdgeAlreadyExistsError
+} from './errors'
 
 export * from './metrics/edgeMetrics'
 export * from './metrics/graphMetrics'

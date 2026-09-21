@@ -9,6 +9,7 @@
     "build": "npm --prefix packages/temporal-graph run build && npm --prefix packages/semtempo-graphrag run build",
     "build:bun": "bun run --filter '*' build",
     "test": "bun test",
+    "test:node": "npm --prefix packages/temporal-graph run test:jest && npm --prefix packages/semtempo-graphrag run test:jest",
     "test:coverage": "bun test --coverage",
     "clean": "rimraf packages/*/dist packages/*/node_modules node_modules"
   },

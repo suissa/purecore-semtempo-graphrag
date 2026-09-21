@@ -6,6 +6,10 @@ export interface PruneEdgeOptions extends DecayOptions {
   deactivatedBefore?: number
   currentTime?: number
   removeIsolatedNodes?: boolean
+  /** Canonical causal/evidence edges are protected by default. */
+  allowEvidenceDeletion?: boolean
+  /** Report candidates without mutating the projection. */
+  dryRun?: boolean
 }
 
 export interface CompressEdgeOptions<EdgeData = any> {
@@ -17,6 +21,8 @@ export interface PruneReport {
   edgesRemoved: number
   nodesRemoved: number
   edgesCompressed: number
+  candidateEdgeIds: string[]
+  protectedEdgeIds: string[]
 }
 
 export class GraphPruner<NodeData = any, EdgeData = any> {
@@ -42,6 +48,8 @@ export class GraphPruner<NodeData = any, EdgeData = any> {
     const allEdges = this.graph.getAllEdges()
 
     let edgesRemoved = 0
+    const candidateEdgeIds: string[] = []
+    const protectedEdgeIds: string[] = []
 
     for (const edge of allEdges) {
       let shouldPrune = false
@@ -60,18 +68,26 @@ export class GraphPruner<NodeData = any, EdgeData = any> {
       }
 
       if (shouldPrune) {
-        this.graph.removeEdge(edge.id)
-        this.accessTrackers.delete(edge.id)
-        edgesRemoved++
+        const isEvidence = edge.relation_kind === 'causal' || edge.evidence_refs.length > 0
+        if (isEvidence && !options.allowEvidenceDeletion) {
+          protectedEdgeIds.push(edge.id)
+          continue
+        }
+        candidateEdgeIds.push(edge.id)
+        if (!options.dryRun) {
+          this.graph.removeEdge(edge.id)
+          this.accessTrackers.delete(edge.id)
+          edgesRemoved++
+        }
       }
     }
 
     let nodesRemoved = 0
-    if (options.removeIsolatedNodes ?? true) {
+    if (!options.dryRun && (options.removeIsolatedNodes ?? true)) {
       nodesRemoved = this.pruneIsolatedNodes()
     }
 
-    return { edgesRemoved, nodesRemoved, edgesCompressed: 0 }
+    return { edgesRemoved, nodesRemoved, edgesCompressed: 0, candidateEdgeIds, protectedEdgeIds }
   }
 
   pruneIsolatedNodes(): number {
@@ -100,6 +116,7 @@ export class GraphPruner<NodeData = any, EdgeData = any> {
 
     const pairs = new Map<string, TemporalEdge<EdgeData>[]>()
     for (const edge of allEdges) {
+      if (edge.relation_kind === 'causal' || edge.evidence_refs.length > 0) continue
       const pairKey = `${edge.from}--->${edge.to}`
       const list = pairs.get(pairKey) || []
       list.push(edge)
@@ -147,6 +164,7 @@ export class GraphPruner<NodeData = any, EdgeData = any> {
         )
 
         primaryEdge.data = mergedData
+        primaryEdge.valid_end = maxDeactivatedAt
         primaryEdge.deactivated_at = maxDeactivatedAt
 
         for (let i = 1; i < cluster.length; i++) {

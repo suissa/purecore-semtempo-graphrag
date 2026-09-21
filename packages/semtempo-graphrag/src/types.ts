@@ -96,6 +96,10 @@ export interface SemanticSearchOptions {
   limit?: number
   /** Tipo de busca */
   searchType?: 'similarity' | 'hybrid' | 'index' | 'fuzzy' | 'soundex' | 'vector'
+  /** Valid-time view used to exclude temporally invisible nodes. */
+  validAt?: number
+  /** Observation-time cutoff used for point-in-time reconstruction. */
+  observedBefore?: number
 }
 
 /**
